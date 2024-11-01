@@ -4,10 +4,8 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import urllib.parse
 import requests
 import threading
-from genericpath import exists
 
-
-import yaml
+from utils import load_config, save_config, remove_oldtokens, token_db
 from accesslink import AccessLink
 
 CALLBACK_PORT = 5000
@@ -18,16 +16,7 @@ TOKEN_FILENAME = "usertokens.yml"
 
 REDIRECT_URL = "http://localhost:{}{}".format(CALLBACK_PORT, CALLBACK_ENDPOINT)
 
-def load_config(filename):
-    """Load configuration from a yaml file"""
-    with open(filename) as f:
-        return yaml.full_load(f)
 
-
-def save_config(config, filename):
-    """Save configuration to a yaml file"""
-    with open(filename, "w+") as f:
-        yaml.safe_dump(config, f, default_flow_style=False)
         
 config = load_config(CONFIG_FILENAME)
 
@@ -48,7 +37,7 @@ class OAuthCallbackHandler(BaseHTTPRequestHandler):
                 user_id = token_response["x_user_id"]
                 accesstoken = token_response["access_token"]
 
-                usertokens = token_db()
+                usertokens = token_db(TOKEN_FILENAME)
 
                 usertokens["tokens"] = remove_oldtokens(array = usertokens["tokens"], newuserid= user_id)
                 newtoken = {"user_id": user_id, "access_token":accesstoken}
@@ -74,27 +63,6 @@ class OAuthCallbackHandler(BaseHTTPRequestHandler):
         else:
             self.send_response(404)
             self.end_headers()
-
-def remove_oldtokens(array , newuserid):
-    res = []
-    for item in array:
-        if item == None:
-            del item
-            continue
-        useritem = item["user_id"]
-        usertoken = item["access_token"]
-        if useritem != newuserid:
-            res.append({"user_id": useritem,
-                    "access_token":usertoken})
-    return res
-
-def token_db():
-    usertokens = None
-    if exists(TOKEN_FILENAME):
-        usertokens = load_config(TOKEN_FILENAME)
-    if usertokens == None:
-        usertokens = {"tokens" : []}
-    return usertokens
 
 
 def main():
