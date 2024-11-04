@@ -157,3 +157,4 @@ cython_debug/
 # Custom ignores:
 config.yml
 usertokens.yml
+data/*.json

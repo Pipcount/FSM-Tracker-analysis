@@ -22,15 +22,20 @@ def get_exercises(token):
         return
 
     resource_urls = transaction.list_exercises()["exercises"]
-    exercise_summary_list = []
+    exercise_list = []
     for url in resource_urls:
         exercise_summary = transaction.get_exercise_summary(url)
-        exercise_summary_list.append(exercise_summary)
+        heart_rate_zones = transaction.get_heart_rate_zones(url)
+        available_samples = transaction.get_available_samples(url)
+        samples = []
+        if available_samples:
+            samples = [transaction.get_samples(sample) for sample in available_samples["samples"]]
+        exercise = {"exercise_summary": exercise_summary, "heart_rate_zones": heart_rate_zones, "samples": samples}
+        exercise_list.append(exercise)
 
-        print("Exercise summary:", exercise_summary)
 
     transaction.commit()
-    return exercise_summary_list
+    return exercise_list
 
 def get_daily_activity(token):
     transaction = accesslink.daily_activity.create_transaction(user_id=token["user_id"],
@@ -41,15 +46,16 @@ def get_daily_activity(token):
 
     resource_urls = transaction.list_activities()["activity-log"]
 
-    activity_summary_list = []
+    activity_list = []
     for url in resource_urls:
         activity_summary = transaction.get_activity_summary(url)
-        activity_summary_list.append(activity_summary)
-
-        print("Activity summary:", activity_summary)
+        step_samples = transaction.get_step_samples(url)
+        zone_samples = transaction.get_zone_samples(url)
+        activity = {"activity_summary": activity_summary, "step_samples": step_samples, "zone_sample": zone_samples}
+        activity_list.append(activity)
 
     transaction.commit()
-    return activity_summary_list
+    return activity_list
 
 def get_physical_info(token):
     transaction = accesslink.physical_info.create_transaction(user_id=token["user_id"],
@@ -64,8 +70,6 @@ def get_physical_info(token):
     for url in resource_urls:
         physical_info = transaction.get_physical_info(url)
         physical_info_list.append(physical_info)
-
-        print("Physical info:", physical_info)
 
     transaction.commit()
     return physical_info_list
