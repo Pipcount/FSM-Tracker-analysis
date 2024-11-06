@@ -12,7 +12,6 @@ tokens = token_db(TOKEN_FILENAME)
 accesslink = AccessLink(client_id=config['client_id'],
                         client_secret=config['client_secret'])
 
-print(tokens)
 
 def get_exercises(token):
     transaction = accesslink.training_data.create_transaction(user_id=token["user_id"],
@@ -82,7 +81,6 @@ for token in tokens["tokens"]:
         print("No data available")
         continue
 
-
     token_data = {}
     for item in available_data["available-user-data"]:
         if item["data-type"] == "EXERCISE":
@@ -91,9 +89,11 @@ for token in tokens["tokens"]:
             token_data["daily_activity"] = get_daily_activity(token)
         elif item["data-type"] == "PHYSICAL_INFORMATION":
             token_data["physical_info"] = get_physical_info(token)
-
-    user_data = accesslink.get_userdata(token["user_id"], token["access_token"])
-    token_data["user_data"] = user_data
+    
+    token_data["sleep"] = accesslink.get_sleep(token["access_token"])
+    token_data["recharge"] = accesslink.get_recharge(token["access_token"])
+    token_data["user_data"] = accesslink.get_userdata(token["user_id"], token["access_token"])
+    
     data[token["user_id"]] = token_data
 
 filename = "{}.json".format(time.strftime("%Y%m%d-%H%M%S"))
