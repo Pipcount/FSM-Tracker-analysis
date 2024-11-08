@@ -21,6 +21,7 @@ def get_exercises(token):
         return
 
     resource_urls = transaction.list_exercises()["exercises"]
+    print("Exercise urls: ", resource_urls)
     exercise_list = []
     for url in resource_urls:
         exercise_summary = transaction.get_exercise_summary(url)
@@ -44,6 +45,7 @@ def get_daily_activity(token):
         return
 
     resource_urls = transaction.list_activities()["activity-log"]
+    print("daily activity urls: ", resource_urls)
 
     activity_list = []
     for url in resource_urls:
@@ -64,7 +66,8 @@ def get_physical_info(token):
         return
 
     resource_urls = transaction.list_physical_infos()["physical-informations"]
-
+    print("physical info urls: ", resource_urls)
+    
     physical_info_list = []
     for url in resource_urls:
         physical_info = transaction.get_physical_info(url)
