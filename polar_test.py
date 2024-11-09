@@ -56,7 +56,6 @@ def get_daily_activity(token):
         activity_list.append(activity)
 
     transaction.commit()
-    print("activity_list: ", activity_list)
     return activity_list
 
 def get_physical_info(token):
@@ -85,25 +84,14 @@ for token in tokens["tokens"]:
         print("No data available")
         continue
 
-    token_data = {}
-    token_data["exercises"] = None
-    token_data["daily_activity"] = None
-    token_data["physical_info"] = None
-    for item in available_data["available-user-data"]:
-        if item["data-type"] == "EXERCISE" and token_data["exercises"] is None:
-            token_data["exercises"] = get_exercises(token)
-        elif item["data-type"] == "ACTIVITY_SUMMARY" and token_data["daily_activity"] is None:
-            token_data["daily_activity"] = get_daily_activity(token)
-        elif item["data-type"] == "PHYSICAL_INFORMATION" and token_data["physical_info"] is None:
-            token_data["physical_info"] = get_physical_info(token)
-        else:
-            print("Item not used: ", item)
-    
-    token_data["sleep"] = accesslink.get_sleep(token["access_token"])
-    token_data["recharge"] = accesslink.get_recharge(token["access_token"])
-    token_data["user_data"] = accesslink.get_userdata(token["user_id"], token["access_token"])
-    
-    data[token["user_id"]] = token_data
+    data[token["user_id"]] = {
+        "exercises": get_exercises(token),
+        "daily_activity": get_daily_activity(token),
+        "physical_info": get_physical_info(token),
+        "sleep": accesslink.get_sleep(token["access_token"]),
+        "recharge": accesslink.get_recharge(token["access_token"]),
+        "user_data": accesslink.get_userdata(token["user_id"], token["access_token"])
+    }
     print("Data for user", token["user_id"], "collected")
 
 filename = "{}.json".format(time.strftime("%Y%m%d-%H%M%S"))
