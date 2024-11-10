@@ -1,0 +1,2 @@
+# Run the script every 5 minutes
+*/5 * * * * cd /app && /usr/local/bin/python3 polar_test.py >> /var/log/cron.log 2>&1

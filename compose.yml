@@ -21,6 +21,12 @@ services:
       - type: volume
         source: influxdb2-config
         target: /etc/influxdb2
+  polar_test:
+    build: .
+    depends_on:
+      - influxdb2
+    volumes:
+      - ./docker_data:/app/data
 secrets:
   influxdb2-admin-username:
     file: ~/.env.influxdb2-admin-username
