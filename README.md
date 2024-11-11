@@ -10,6 +10,11 @@ Make a config.yml file in the root directory with the following content:
 ```yaml
 client_id: "your_client_id"
 client_secret: "your_client_secret"
+influxdb:
+    url: "http://influxdb:8086"
+    token: "your_influxdb_token"
+    org: "your_influxdb_org"
+    bucket: "your_influxdb_bucket"
 ``` 
 Authenticate the users using the following command:
 ```bash
