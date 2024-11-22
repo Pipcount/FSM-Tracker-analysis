@@ -27,6 +27,18 @@ services:
       - influxdb2
     volumes:
       - ./docker_data:/app/data
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    depends_on:
+      - influxdb2
+    environment:
+      - TERM=linux
+    ports:
+      - 3000:3000
+    volumes:
+      - grafana_storage:/var/lib/grafana 
 secrets:
   influxdb2-admin-username:
     file: ~/.env.influxdb2-admin-username
@@ -37,3 +49,4 @@ secrets:
 volumes:
   influxdb2-data:
   influxdb2-config:
+  grafana_storage:

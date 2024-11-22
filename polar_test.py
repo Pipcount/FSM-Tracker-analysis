@@ -1,7 +1,8 @@
 from utils import load_config, token_db
 from accesslink import AccessLink
 import json, time
-from datetime import datetime
+from datetime import datetime, timedelta
+from isodate import parse_duration
 from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS
 
@@ -89,26 +90,111 @@ def get_physical_info(token):
     transaction.commit()
     return physical_info_list
 
-data = {}
+def insert_calories(activity, user_id):
+    calories = activity["activity_summary"]["calories"]
+    timestamp = "{}T00:00:00Z".format(activity["activity_summary"]["date"])
+    point = Point("Calories") \
+        .tag("user_id", user_id) \
+        .field("calories", calories) \
+        .time(timestamp, WritePrecision.NS)
+    write_api.write(bucket=config['influxdb']['bucket'], record=point)
 
-for token in tokens["tokens"]:
-    available_data = accesslink.pull_notifications.list()
-    if not available_data:
-        print("No data available")
-        continue
+def insert_active_calories(activity, user_id):
+    active_calories = activity["activity_summary"]["active-calories"]
+    timestamp = "{}T00:00:00Z".format(activity["activity_summary"]["date"])
+    point = Point("Active_Calories") \
+        .tag("user_id", user_id) \
+        .field("active_calories", active_calories) \
+        .time(timestamp, WritePrecision.NS)
+    write_api.write(bucket=config['influxdb']['bucket'], record=point)
 
-    data[token["user_id"]] = {
-        "exercises": get_exercises(token),
-        "daily_activity": get_daily_activity(token),
-        "physical_info": get_physical_info(token),
-        "sleep": accesslink.get_sleep(token["access_token"]),
-        "recharge": accesslink.get_recharge(token["access_token"]),
-        "user_data": accesslink.get_userdata(token["user_id"], token["access_token"])
-    }
-    print("Data for user", token["user_id"], "collected")
+def insert_active_steps(activity, user_id):
+    acive_steps  = activity["activity_summary"]["active-steps"]
+    timestamp = "{}T00:00:00Z".format(activity["activity_summary"]["date"])
+    point = Point("Active_Steps") \
+        .tag("user_id", user_id) \
+        .field("active_steps", acive_steps) \
+        .time(timestamp, WritePrecision.NS)
+    write_api.write(bucket=config['influxdb']['bucket'], record=point)
 
-filename = "{}.json".format(time.strftime("%Y%m%d-%H%M%S"))
-with open(DATA_FOLDER + "/" + filename, "w") as f:
-    json.dump(data, f, indent=4)
+def insert_steps(activity, user_id):
+    for step_sample in activity["step_samples"]["samples"]:
+        if step_sample.get("steps") is None:
+            continue
+        timestamp = "{}T{}Z".format(activity["activity_summary"]["date"], step_sample["time"])
+        point = Point("Steps") \
+            .tag("user_id", user_id) \
+            .field("steps", step_sample["steps"]) \
+            .time(timestamp, WritePrecision.NS)
+        write_api.write(bucket=config['influxdb']['bucket'], record=point)
 
-print("Data saved to", DATA_FOLDER + "/" + filename)
+def insert_hr_zones(activity, user_id):
+    for zone_sample in activity["zone_sample"]["samples"]:
+        timestamp = "{}T{}Z".format(activity["activity_summary"]["date"], zone_sample["time"])
+        for zone in zone_sample["activity-zones"]:
+            time_in_zone = parse_duration(zone["inzone"]).total_seconds()
+            point = Point("HR_Zones") \
+                .tag("user_id", user_id) \
+                .tag("zone-idx", zone["index"]) \
+                .field("in_zone_seconds", time_in_zone) \
+                .time(timestamp, WritePrecision.NS)
+            write_api.write(bucket=config['influxdb']['bucket'], record=point)
+
+def insert_continuous_hr(hr_data, user_id):
+    date = hr_data["date"]
+    for hr_sample in hr_data["heart_rate_samples"]:
+        timestamp = "{}T{}Z".format(date, hr_sample["sample_time"])
+        point = Point("Continuous_HR") \
+            .tag("user_id", user_id) \
+            .field("heart_rate", hr_sample["heart_rate"]) \
+            .time(timestamp, WritePrecision.NS)
+        write_api.write(bucket=config['influxdb']['bucket'], record=point)
+
+
+
+def insert_influx(data, user_id):
+    for data_type in data:
+        if data[data_type] is None:
+                continue
+        if data_type == "daily_activity":
+            for activity in data[data_type]:
+                insert_steps(activity, user_id)
+                insert_hr_zones(activity, user_id)
+                insert_calories(activity, user_id)
+                insert_active_calories(activity, user_id)
+                insert_active_steps(activity, user_id)
+        elif data_type == "continuous_hr":
+            if data[data_type]["heart_rates"]:
+                insert_continuous_hr(data[data_type]["heart_rates"][0], user_id)
+
+def main():
+    data = {}
+
+    for token in tokens["tokens"]:
+        available_data = accesslink.pull_notifications.list()
+        if not available_data:
+            print("No data available")
+            continue
+
+        yesterday = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
+        data[token["user_id"]] = {
+            "exercises": get_exercises(token),
+            "daily_activity": get_daily_activity(token),
+            "physical_info": get_physical_info(token),
+            "sleep": accesslink.get_sleep(token["access_token"]),
+            "recharge": accesslink.get_recharge(token["access_token"]),
+            "continuous_hr": accesslink.get_continuous_hr(from_time=yesterday, to_time=yesterday, access_token=token["access_token"]),
+            "user_data": accesslink.get_userdata(token["user_id"], token["access_token"])
+        }
+        print("Data for user", token["user_id"], "collected")
+        if data[token["user_id"]] is not None:
+            insert_influx(data[token["user_id"]], token["user_id"])
+
+    filename = "{}.json".format(time.strftime("%Y%m%d-%H%M%S"))
+    with open(DATA_FOLDER + "/" + filename, "w") as f:
+        json.dump(data, f, indent=4)
+
+    print("Data saved to", DATA_FOLDER + "/" + filename)
+
+if __name__ == "__main__":
+    main()
